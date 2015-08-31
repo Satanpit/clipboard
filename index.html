@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Clipboard library example</title>
+    <meta charset="UTF-8">
+</head>
+<body>
+
+    <button value="Copy text" id="copy">Copy me</button>
+
+    <script src="zeroclipboard/ZeroClipboard.js"></script>
+    <script src="clipboard.js"></script>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            var elem = document.getElementById('copy');
+
+            Clipboard.copy(elem, function () {
+                return elem.value;
+            });
+
+            Clipboard.on('copy', console.log.bind(console));
+
+            Clipboard.on('error', console.error.bind(console));
+        })
+    </script>
+</body>
+</html>
