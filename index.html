@@ -6,17 +6,18 @@
 </head>
 <body>
 
-    <button value="Copy text" id="copy">Copy me</button>
+    <button value="Hello world 0!" class="copy">Click me</button>
+    <button value="Hello world 1!" class="copy">Click me</button>
+    <button value="Hello world 2!" class="copy">Click me</button>
+    <button value="Hello world 3!" class="copy">Click me</button>
 
     <script src="zeroclipboard/ZeroClipboard.js"></script>
     <script src="clipboard.js"></script>
 
     <script>
         document.addEventListener('DOMContentLoaded', function () {
-            var elem = document.getElementById('copy');
-
-            Clipboard.copy(elem, function () {
-                return elem.value;
+            Clipboard.copy('.copy', function (e) {
+                return e.target.value;
             });
 
             Clipboard.on('copy', console.log.bind(console));

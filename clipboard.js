@@ -19,7 +19,7 @@
      * @private
      */
     var globalConfig = {
-        ZeroClipboard: (scope.ZeroClipboard || null)
+        ZeroClipboard: (window.ZeroClipboard || null)
     };
 
     /**
@@ -113,7 +113,7 @@
         /**
          * Channels storage
          */
-        channels: { },
+        channels: {},
 
         /**
          * Subscribe on clipboard events
@@ -175,15 +175,16 @@
          */
         trigger: function (name, properties) {
             if (!this.channels[name]) {
-                return false;
+                return this;
             }
 
-            var args = Array.prototype.splice.call(arguments, 1);
+            var args = toArray(arguments, 2);
 
             window.clearTimeout(timeout);
 
             timeout = window.setTimeout(function () {
                 this.channels[name].forEach(function (chanel) {
+                    args.unshift(new ClipboardEvent(name, properties.target, properties));
                     chanel.handler.apply(chanel.context, args);
                 });
             }.bind(this), 100);
@@ -193,15 +194,57 @@
     });
 
     /**
+     * Clipboard event constructor
+     *
+     * @param {String} type
+     * @param {HTMLElement|Object} target
+     * @param {Object} properties
+     * @constructor
+     */
+    var ClipboardEvent = function (type, target, properties) {
+        properties = properties || { };
+
+        var defaultProperties = {
+            type: type,
+            target: target || null,
+            clipboardType: properties.clipboardType || this.clipboardType,
+            timeStamp: this.timeStamp
+        };
+
+        switch (type) {
+            case 'copy':
+                defaultProperties.text = properties.text || null;
+                break;
+            case 'error':
+                defaultProperties.message = properties.message || null;
+                defaultProperties.name = properties.name || null;
+                break;
+        }
+
+        defineProperties(this, defaultProperties);
+    };
+
+    defineProperties(ClipboardEvent.prototype, {
+        get timeStamp() {
+            return Date.now();
+        },
+
+        get clipboardType() {
+            return (isNativeSupport ? 'native' : 'flash');
+        }
+    });
+
+    /**
      * Get text value in copy callback
      *
      * @param {String|Function|Object|Array} callback
+     * @param {ClipboardEvent} event
      * @returns {String} text value
      * @private
      */
-    var toString = function (callback) {
+    var toString = function (callback, event) {
         if (typeof callback === 'function') {
-            return callback();
+            return callback(event);
         }
 
         if (typeof callback === 'object') {
@@ -264,14 +307,15 @@
         }
 
         var clip = new globalConfig.ZeroClipboard(elem),
-            val = toString(callback);
+            val;
 
         clip.on('copy', function (e) {
+            val = toString(callback, new ClipboardEvent('copy', e.target));
             e.clipboardData.setData('text/plain', val);
 
             this.trigger('copy', {
                 clipboardType: 'flash',
-                target: elem,
+                target: e.target,
                 text: val
             });
         }.bind(this));
@@ -279,11 +323,11 @@
         clip.on('error', function (err) {
             this.trigger('error', {
                 clipboardType: 'flash',
-                target: elem,
-                text: val,
-                detail: err
+                callback: callback,
+                message: err.message,
+                name: err.name
             });
-        });
+        }.bind(this));
     };
 
     /**
@@ -309,7 +353,7 @@
                 }
             }
 
-            var val = toString(callback);
+            var val = toString(callback, new ClipboardEvent('copy', e.target));
 
             try {
                 copyElement().value = val;
@@ -318,16 +362,14 @@
                 doc.execCommand('copy');
 
                 this.trigger('copy', {
-                    clipboardType: 'native',
                     target: e.target,
                     text: val
                 });
             } catch (err) {
                 this.trigger('error', {
-                    clipboardType: 'native',
                     target: e.target,
                     text: val,
-                    detail: err
+                    message: err
                 });
             }
         }.bind(this);
