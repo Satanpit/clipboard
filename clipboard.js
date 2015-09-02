@@ -277,6 +277,7 @@
      * Check execCommand copy function
      *
      * @returns {Boolean} is supported
+     * @private
      */
     var checkNativeClipboard = function () {
         return (isNativeSupport === undefined ? isNativeSupport = doc.queryCommandSupported('copy') : isNativeSupport);
