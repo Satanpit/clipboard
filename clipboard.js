@@ -9,8 +9,8 @@
 (function (scope, doc) {
     'use strict';
 
-    var copyInput, isNativeSupport, timeout, args,
-        events = [ ];
+    var copyInput, isNativeSupport, isFlashSupport,
+        timeout, args, events = [ ];
 
     /**
      * Clipboard global config
@@ -180,11 +180,10 @@
 
             var args = toArray(arguments, 2);
 
-            window.clearTimeout(timeout);
-
+            timeout && window.clearTimeout(timeout);
             timeout = window.setTimeout(function () {
                 this.channels[name].forEach(function (chanel) {
-                    args.unshift(new ClipboardEvent(name, properties.target, properties));
+                    args.unshift(new ClipboardCustomEvent(name, properties.target, properties));
                     chanel.handler.apply(chanel.context, args);
                 });
             }.bind(this), 100);
@@ -201,7 +200,7 @@
      * @param {Object} properties
      * @constructor
      */
-    var ClipboardEvent = function (type, target, properties) {
+    var ClipboardCustomEvent = function (type, target, properties) {
         properties = properties || { };
 
         var defaultProperties = {
@@ -224,13 +223,21 @@
         defineProperties(this, defaultProperties);
     };
 
-    defineProperties(ClipboardEvent.prototype, {
+    defineProperties(ClipboardCustomEvent.prototype, {
         get timeStamp() {
             return Date.now();
         },
 
         get clipboardType() {
             return (isNativeSupport ? 'native' : 'flash');
+        },
+
+        get isNativeSupported() {
+            return isNativeSupport;
+        },
+
+        get isFlashSupported() {
+            return isFlashSupport;
         }
     });
 
@@ -238,7 +245,7 @@
      * Get text value in copy callback
      *
      * @param {String|Function|Object|Array} callback
-     * @param {ClipboardEvent} event
+     * @param {ClipboardCustomEvent} event
      * @returns {String} text value
      * @private
      */
@@ -303,14 +310,17 @@
      */
     var copyByZeroClipboard = function (elem, callback) {
         if (!globalConfig.ZeroClipboard) {
+            isFlashSupport = false;
             return false;
         }
+
+        isFlashSupport = true;
 
         var clip = new globalConfig.ZeroClipboard(elem),
             val;
 
         clip.on('copy', function (e) {
-            val = toString(callback, new ClipboardEvent('copy', e.target));
+            val = toString(callback, new ClipboardCustomEvent('copy', e.target));
             e.clipboardData.setData('text/plain', val);
 
             this.trigger('copy', {
@@ -321,6 +331,10 @@
         }.bind(this));
 
         clip.on('error', function (err) {
+            if (err.name === 'flash-disabled') {
+                isFlashSupport = false;
+            }
+
             this.trigger('error', {
                 clipboardType: 'flash',
                 callback: callback,
@@ -342,23 +356,12 @@
         var mouseDownHandler = function (e) {
             e.preventDefault();
 
-            if (isNativeSupport === undefined) {
-                if (checkNativeClipboard()) {
-                    if (globalConfig.ZeroClipboard) {
-                        globalConfig.ZeroClipboard.destroy();
-                    }
-                } else {
-                    unbindMouseDown();
-                    return null;
-                }
-            }
+            var val = toString(callback, new ClipboardCustomEvent('copy', e.target));
 
-            var val = toString(callback, new ClipboardEvent('copy', e.target));
+            copyElement().value = val;
+            copyElement().select();
 
             try {
-                copyElement().value = val;
-                copyElement().select();
-
                 doc.execCommand('copy');
 
                 this.trigger('copy', {
@@ -366,11 +369,24 @@
                     text: val
                 });
             } catch (err) {
+                isNativeSupport = false;
+            }
+
+            if (isNativeSupport === undefined) {
+                checkNativeClipboard();
+            }
+
+            if (!isNativeSupport) {
                 this.trigger('error', {
-                    target: e.target,
-                    text: val,
-                    message: err
+                    clipboardType: 'native',
+                    callback: callback,
+                    message: 'Native clipboard not supported',
+                    name: 'copy-disabled'
                 });
+
+                if (isFlashSupport) {
+                    unbindMouseDown();
+                }
             }
         }.bind(this);
 
@@ -448,7 +464,6 @@
             this.off();
         }
     };
-
 
     scope.Clipboard = Object.create(ClipboardEmitter, propertiesNames(ClipboardAPI));
 
