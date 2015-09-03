@@ -6,7 +6,7 @@
 </head>
 <body>
 
-    <button value="Hello world 0!" class="copy">Click me</button>
+    <button value="Hello world 0!" class="copy-2">Click me</button>
     <button value="Hello world 1!" class="copy">Click me</button>
     <button value="Hello world 2!" class="copy">Click me</button>
     <button value="Hello world 3!" class="copy">Click me</button>
@@ -16,13 +16,26 @@
 
     <script>
         document.addEventListener('DOMContentLoaded', function () {
+
+            new Clipboard.Driver('prompt', {
+                checkSupport: function () {
+                    return true;
+                },
+
+                copy: function (elem, callback) {
+                    elem.forEach(function (item) {
+                        item.addEventListener('mousedown', function (e) {
+                            window.prompt("Copy to clipboard: Ctrl+C, Enter", this.callbackToString(callback, e.target));
+                        }.bind(this), false);
+                    }, this);
+                }
+            });
+
             Clipboard.copy('.copy', function (e) {
                 return e.target.value;
             });
 
             Clipboard.on('copy', console.log.bind(console));
-
-            Clipboard.on('error', console.error.bind(console));
         })
     </script>
 </body>

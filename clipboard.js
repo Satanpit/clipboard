@@ -9,17 +9,18 @@
 (function (scope, doc) {
     'use strict';
 
-    var copyInput, isNativeSupport, isFlashSupport,
-        timeout, args, events = [ ];
+    var timeout, args;
 
     /**
      * Clipboard global config
      *
-     * @type {{ZeroClipboard: (*|Function|ZeroClipboard|null)}}
+     * @type {Object}
+     * @prop {*|Function|ZeroClipboard} [ZeroClipboard] ZeroClipboard library constructor
      * @private
      */
     var globalConfig = {
-        ZeroClipboard: (window.ZeroClipboard || null)
+        baseDriver: 'native',
+        alternativeDriver: 'flash'
     };
 
     /**
@@ -75,10 +76,10 @@
      * @returns {Object}
      * @private
      */
-    function propertiesNames(target) {
+    function propertiesNames(target, enumerable) {
         return Object.getOwnPropertyNames(target).reduce(function (result, key) {
             result[key] = Object.getOwnPropertyDescriptor(target, key);
-            result[key].enumerable = false;
+            result[key].enumerable = enumerable || false;
 
             return result;
         }, { })
@@ -101,6 +102,14 @@
         return Object.defineProperties(target, propertiesNames(properties));
     }
 
+    function each(object, callback, context) {
+        if (typeof object === 'object') {
+            Object.keys(object).forEach(function (key) {
+                callback.call(context || null, object[key], key);
+            });
+        }
+    }
+
     /**
      * Clipboard event emitter
      *
@@ -113,7 +122,7 @@
         /**
          * Channels storage
          */
-        channels: {},
+        channels: { },
 
         /**
          * Subscribe on clipboard events
@@ -134,6 +143,23 @@
             });
 
             return this;
+        },
+
+        /**
+         * Subscribe once on clipboard events
+         *
+         * @param {String} name
+         * @param {Function} callback
+         * @param {Object} [context]
+         * @returns {ClipboardEmitter}
+         */
+        one: function (name, callback, context) {
+            var onceCallback = function () {
+                ClipboardEmitter.off(name, onceCallback);
+                callback.apply(context, arguments);
+            };
+
+            return this.on(name, onceCallback);
         },
 
         /**
@@ -182,8 +208,9 @@
 
             timeout && window.clearTimeout(timeout);
             timeout = window.setTimeout(function () {
+                args.unshift(new ClipboardCustomEvent(name, properties));
+
                 this.channels[name].forEach(function (chanel) {
-                    args.unshift(new ClipboardCustomEvent(name, properties.target, properties));
                     chanel.handler.apply(chanel.context, args);
                 });
             }.bind(this), 100);
@@ -196,16 +223,20 @@
      * Clipboard event constructor
      *
      * @param {String} type
-     * @param {HTMLElement|Object} target
-     * @param {Object} properties
+     * @param {Object} [properties]
+     * @param {Object} [properties.target] targeting object
+     * @param {Object} [properties.clipboardType] clipboard type, native or flash
+     * @param {Object} [properties.text] copy text (only copy type events)
+     * @param {Object} [properties.name] error name (only error type events)
+     * @param {Object} [properties.message] error message (only error type events)
      * @constructor
      */
-    var ClipboardCustomEvent = function (type, target, properties) {
+    var ClipboardCustomEvent = function (type, properties) {
         properties = properties || { };
 
         var defaultProperties = {
             type: type,
-            target: target || null,
+            target: properties.target || null,
             clipboardType: properties.clipboardType || this.clipboardType,
             timeStamp: this.timeStamp
         };
@@ -229,177 +260,354 @@
         },
 
         get clipboardType() {
-            return (isNativeSupport ? 'native' : 'flash');
-        },
-
-        get isNativeSupported() {
-            return isNativeSupport;
-        },
-
-        get isFlashSupported() {
-            return isFlashSupport;
+            return ClipboardDriver.using;
         }
     });
 
     /**
-     * Get text value in copy callback
+     * Clipboard base method for drivers
      *
-     * @param {String|Function|Object|Array} callback
-     * @param {ClipboardCustomEvent} event
-     * @returns {String} text value
-     * @private
+     * @type {ClipboardEmitter}
      */
-    var toString = function (callback, event) {
-        if (typeof callback === 'function') {
-            return callback(event);
-        }
+    var ClipboardBase = Object.create(ClipboardEmitter, propertiesNames({
+        constructor: function ClipboardBase() { },
 
-        if (typeof callback === 'object') {
-            return JSON.stringify(callback);
-        }
-
-        return ('' + callback);
-    };
-
-    /**
-     * Remove mouseDown event listeners
-     * @private
-     */
-    var unbindMouseDown = function () {
-        events.forEach(function (item) {
-            item.elem.removeEventListener('mousedown', item.handler, false)
-        });
-
-        events.length = 0;
-    };
-
-    /**
-     * Check execCommand copy function
-     *
-     * @returns {Boolean} is supported
-     * @private
-     */
-    var checkNativeClipboard = function () {
-        return (isNativeSupport === undefined ? isNativeSupport = doc.queryCommandSupported('copy') : isNativeSupport);
-    };
-
-    /**
-     * Create and append to document fake
-     * textarea element for native clipboard
-     *
-     * @returns {Node} textarea
-     */
-    var copyElement = function () {
-        if (copyInput instanceof HTMLTextAreaElement) {
-            return copyInput;
-        }
-
-        copyInput = document.createElement('textarea');
-        copyInput.style.position = 'absolute';
-        copyInput.style.left = '-10000px';
-
-        return (doc.body || doc.documentElement).appendChild(copyInput);
-    };
-
-    /**
-     * Copy function
-     * use ZeroClipboard library
-     *
-     * @param {String|Array|HTMLElement|HTMLCollection} elem
-     * @param {*} callback
-     * @private
-     */
-    var copyByZeroClipboard = function (elem, callback) {
-        if (!globalConfig.ZeroClipboard) {
-            isFlashSupport = false;
-            return false;
-        }
-
-        isFlashSupport = true;
-
-        var clip = new globalConfig.ZeroClipboard(elem),
-            val;
-
-        clip.on('copy', function (e) {
-            val = toString(callback, new ClipboardCustomEvent('copy', e.target));
-            e.clipboardData.setData('text/plain', val);
-
-            this.trigger('copy', {
-                clipboardType: 'flash',
-                target: e.target,
-                text: val
-            });
-        }.bind(this));
-
-        clip.on('error', function (err) {
-            if (err.name === 'flash-disabled') {
-                isFlashSupport = false;
+        /**
+         * Convert callback copy argument to string
+         *
+         * @param {*} callback
+         * @param {Object} [target] create ClipboardCustomEvent by called callback function
+         * @returns {String}
+         */
+        callbackToString: function (callback, target) {
+            if (typeof callback === 'function') {
+                return callback( new ClipboardCustomEvent('copy', { target: target }) );
             }
 
-            this.trigger('error', {
-                clipboardType: 'flash',
-                callback: callback,
-                message: err.message,
-                name: err.name
+            if (typeof callback === 'object') {
+                return JSON.stringify(callback);
+            }
+
+            return '' + callback;
+        }
+    }));
+
+    /**
+     * Clipboard driver interface
+     *
+     * @param {String} name
+     * @param {ClipboardBase} driver
+     * @param {Function} driver.checkSupport validate driver support
+     * @param {Function} driver.copy
+     * @param {Function} driver.destroy
+     * @param {Object} [driver.config] set properties to global config
+     * @constructor
+     */
+    var ClipboardDriver = function (name, driver) {
+        this.name = name;
+
+        driver = Object.create(ClipboardBase, propertiesNames(driver, true));
+
+        try {
+            var scope = driver;
+
+            Object.keys(driver).forEach(function (key) {
+                if (key in this) {
+                    this[key] = typeof driver[key] === 'function' ? driver[key].bind(scope) : driver[key];
+                }
+            }, this);
+
+            ClipboardDriver.register(this);
+        } catch(err) {
+            driver.trigger('error', {
+                target: driver,
+                name: 'driver-error',
+                message: err
             });
-        }.bind(this));
+        }
     };
 
     /**
-     * Copy function
-     * use native execCommand method
-     *
-     * @param {String|Array|HTMLElement|HTMLCollection} elem
-     * @param {*} callback
-     * @private
+     * Clipboard driver static methods
      */
-    var copyByNativeClipboard = function (elem, callback) {
-        var mouseDownHandler = function (e) {
-            e.preventDefault();
+    defineProperties(ClipboardDriver, {
+        /**
+         * Drivers storage
+         */
+        drivers: { },
 
-            var val = toString(callback, new ClipboardCustomEvent('copy', e.target));
+        /**
+         * Current used driver name
+         */
+        using: undefined,
 
-            copyElement().value = val;
-            copyElement().select();
+        /**
+         * Get current used driver interface
+         *
+         * @returns {ClipboardDriver}
+         */
+        get current() {
+            return this.drivers[this.using];
+        },
 
-            try {
-                doc.execCommand('copy');
+        /**
+         * Set using driver
+         *
+         * @param {String} name driver name
+         * @returns {ClipboardDriver}
+         */
+        use: function (name) {
+            if (this.has(name)) {
+                this.using = name
+            }
+
+            return this;
+        },
+
+        /**
+         * Has driver in storage
+         *
+         * @param {String} name driver name
+         * @returns {boolean}
+         */
+        has: function (name) {
+            return Boolean(this.drivers[name]);
+        },
+
+        /**
+         * Get driver interface by name
+         *
+         * @param {String} name driver name
+         * @returns {ClipboardDriver}
+         */
+        get: function (name) {
+            if (this.has(name)) {
+                return this.drivers[name];
+            }
+        },
+
+        /**
+         * Register new clipboard driver
+         *
+         * @param {ClipboardDriver} driver
+         * @returns {ClipboardDriver}
+         */
+        register: function (driver) {
+            if (!(driver instanceof ClipboardDriver)) {
+                throw Error('Driver instance is not ClipboardDriver');
+            }
+
+            if (this.has(driver.name)) {
+                throw Error('Driver "'+ driver.name +'" already exists');
+            }
+
+            if (driver.config) {
+                Object.keys(driver.config).forEach(function (key) {
+                    globalConfig[key] = driver.config[key];
+                });
+            }
+
+            this.drivers[driver.name] = driver;
+
+            return this;
+        },
+
+        /**
+         * Remove clipboard driver
+         *
+         * @param {String} name
+         * @returns {ClipboardDriver}
+         */
+        remove: function (name) {
+            if (this.has(name)) {
+                this.get(name).destroy();
+                delete this.drivers[name];
+            }
+
+            return this;
+        }
+    });
+
+    /**
+     * Clipboard driver validation interface
+     */
+    defineProperties(ClipboardDriver.prototype, {
+        set name(name) {
+            if (typeof name !== 'string') {
+                throw Error('name is not a string');
+            }
+
+            Object.defineProperty(this, 'name', { value: name });
+        },
+
+        set type(type) {
+            if (typeof type !== 'string') {
+                throw Error('type is not a string');
+            }
+
+            Object.defineProperty(this, 'type', { value: type });
+        },
+
+        set checkSupport(value) {
+            if (typeof value !== 'function') {
+                throw Error('checkSupport method is not a function');
+            }
+
+            Object.defineProperty(this, 'checkSupport', { value: value });
+        },
+
+        set copy(value) {
+            if (typeof value !== 'function') {
+                throw Error('copy method is not a function');
+            }
+
+            Object.defineProperty(this, 'copy', { value: value });
+        },
+
+        set destroy(value) {
+            if (typeof value !== 'function') {
+                throw Error('destroy method is not a function');
+            }
+
+            Object.defineProperty(this, 'destroy', { value: value });
+        },
+
+        set config(value) {
+            if (typeof value !== 'object') {
+                throw Error('config is not a object');
+            }
+
+            Object.defineProperty(this, 'config', { value: value });
+        }
+    });
+
+
+    new ClipboardDriver('native', {
+        isSupport: undefined,
+        events: [ ],
+        textArea: undefined,
+
+        get copyElement() {
+            if (this.textArea instanceof HTMLTextAreaElement) {
+                return this.textArea;
+            }
+
+            this.textArea = doc.createElement('textarea');
+            this.textArea.style.position = 'absolute';
+            this.textArea.style.left = '-10000px';
+
+            return (doc.body || doc.documentElement).appendChild(this.textArea);
+        },
+
+        checkSupport: function () {
+            return this.isSupport === undefined ? this.isSupport = doc.queryCommandSupported('copy') : this.isSupport;
+        },
+
+        copy: function (elem, callback) {
+            var mouseDownHandler = function (e) {
+                e.preventDefault();
+
+                var val = this.callbackToString(callback, e.target);
+
+                this.copyElement.value = val;
+                this.copyElement.select();
+
+                try {
+                    doc.execCommand('copy');
+
+                    this.trigger('copy', {
+                        target: e.target,
+                        text: val
+                    });
+                } catch (err) {
+                    this.isSupport = false;
+                }
+
+                if (this.isSupport === undefined) {
+                    this.checkSupport();
+
+                    if (this.isSupport) {
+                        ClipboardDriver.remove('flash');
+                    }
+                }
+
+                if (!this.isSupport) {
+                    this.trigger('error', {
+                        clipboardType: 'native',
+                        target: e.target,
+                        message: 'Native clipboard not supported',
+                        name: 'support'
+                    });
+                } else {
+                    ClipboardDriver.use('native');
+                }
+            }.bind(this);
+
+            elem.forEach(function (item) {
+                item.addEventListener('mousedown', mouseDownHandler, false);
+
+                this.events.push({
+                    elem: item,
+                    handler: mouseDownHandler
+                });
+            }, this);
+
+            return this;
+        },
+
+        destroy: function () {
+            (doc.body || doc.documentElement).removeChild(this.copyElement);
+
+            this.events.forEach(function (item) {
+                item.elem.removeEventListener('mousedown', item.handler, false);
+            });
+
+            this.events.length = 0;
+        }
+    });
+
+    new ClipboardDriver('flash', {
+        config: {
+            ZeroClipboard: window.ZeroClipboard || null
+        },
+
+        checkSupport: function () {
+            if (!this.config.ZeroClipboard) {
+                return false;
+            }
+
+            return !this.config.ZeroClipboard.isFlashUnusable();
+        },
+
+        copy: function (elem, callback) {
+            var clip = new globalConfig.ZeroClipboard(elem),
+                val;
+
+            clip.on('copy', function (e) {
+                val = this.callbackToString(callback, e.target);
+                e.clipboardData.setData('text/plain', val);
 
                 this.trigger('copy', {
+                    clipboardType: 'flash',
                     target: e.target,
                     text: val
                 });
-            } catch (err) {
-                isNativeSupport = false;
-            }
+            }.bind(this));
 
-            if (isNativeSupport === undefined) {
-                checkNativeClipboard();
-            }
-
-            if (!isNativeSupport) {
+            clip.on('error', function (err) {
                 this.trigger('error', {
-                    clipboardType: 'native',
+                    clipboardType: 'flash',
                     callback: callback,
-                    message: 'Native clipboard not supported',
-                    name: 'copy-disabled'
+                    message: err.message,
+                    name: err.name
                 });
+            }.bind(this));
+        },
 
-                if (isFlashSupport) {
-                    unbindMouseDown();
-                }
-            }
-        }.bind(this);
-
-        elem.forEach(function (item) {
-            item.addEventListener('mousedown', mouseDownHandler, false);
-
-            events.push({
-                elem: item,
-                handler: mouseDownHandler
-            });
-        })
-    };
+        destroy: function () {
+            this.config.ZeroClipboard.destroy();
+        }
+    });
 
     /**
      * External interface Clipboard lib
@@ -423,18 +631,41 @@
             args = toArray(arguments);
             args.splice(0, 1, toElements(elem));
 
-            if (isNativeSupport === undefined) {
-                copyByZeroClipboard.apply(this, args);
-                copyByNativeClipboard.apply(this, args);
+            if (ClipboardDriver.using === undefined) {
+                ClipboardDriver.use(globalConfig.baseDriver);
+                ClipboardDriver.current.copy.apply(ClipboardDriver.current, args);
 
-                return this;
-            }
+                if (globalConfig.alternativeDriver && ClipboardDriver.has(globalConfig.alternativeDriver)) {
+                    var alt = ClipboardDriver.get(globalConfig.alternativeDriver);
 
-            if (isNativeSupport) {
-                copyByNativeClipboard.apply(this, args);
+                    if (alt.checkSupport()) {
+                        alt.copy.apply(alt, args);
+                    } else {
+                        ClipboardDriver.remove(alt.name);
+                    }
+                }
             } else {
-                copyByZeroClipboard.apply(this, args);
+                ClipboardDriver.current.copy.apply(ClipboardDriver.current, args);
             }
+
+            this.on('error', function (e) {
+                if (e.name === 'support') {
+                    ClipboardDriver.remove(e.clipboardType);
+
+                    Object.keys(ClipboardDriver.drivers).forEach(function (key) {
+                        var driver = ClipboardDriver.drivers[key];
+
+                        if (driver.checkSupport()) {
+                            driver.copy.apply(driver, args);
+                            ClipboardDriver.use(driver.name);
+
+                            e.target.dispatchEvent(new MouseEvent('mousedown'));
+
+                            return false;
+                        }
+                    });
+                }
+            }, this);
 
             return this;
         },
@@ -454,14 +685,16 @@
         },
 
         /**
+         * Clipboard drivers interface
+         */
+        Driver: ClipboardDriver,
+
+        /**
          * Unbind all events, removed cached data and fake element
          * Triggered 'destroy' event
          */
         destroy: function () {
             this.trigger('destroy');
-            (doc.body || doc.documentElement).removeChild(copyInput);
-            unbindMouseDown();
-            globalConfig.ZeroClipboard.destroy();
             this.off();
         }
     };
