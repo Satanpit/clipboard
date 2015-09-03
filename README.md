@@ -3,11 +3,14 @@ Wrapper for Clipboard API and [ZeroClipboard](https://github.com/zeroclipboard/z
 
 Using execCommand in supported browsers, ZeroClipboard library for other
 
-#### Native support:
+#### Native driver support:
 
 * IE10+
 * Chrome 43+,
 * Opera 29+
+
+#### ZeroClipboard driver support:
+See [ZeroClipboard](https://github.com/zeroclipboard/zeroclipboard)
 
 ### Usage
 
