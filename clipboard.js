@@ -16,12 +16,27 @@
      *
      * @type {Object}
      * @prop {*|Function|ZeroClipboard} [ZeroClipboard] ZeroClipboard library constructor
+     * @prop {String} baseDriver default driver name
+     * @prop {String} alternativeDriver alternative driver name, init on starting, destroyed if base driver supported
      * @private
      */
     var globalConfig = {
         baseDriver: 'native',
         alternativeDriver: 'flash'
     };
+
+    /**
+     * Required driver methods
+     * for validation in driver constructor
+     *
+     * @type {string[]}
+     * @private
+     */
+    var requiredDriverMethods = [
+        'checkSupport',
+        'copy',
+        'destroy'
+    ];
 
     /**
      * Convert array like object to array
@@ -73,6 +88,7 @@
      * set enumerable false for all target properties
      *
      * @param {Object} target
+     * @param {Boolean} [enumerable]
      * @returns {Object}
      * @private
      */
@@ -100,14 +116,6 @@
         }
 
         return Object.defineProperties(target, propertiesNames(properties));
-    }
-
-    function each(object, callback, context) {
-        if (typeof object === 'object') {
-            Object.keys(object).forEach(function (key) {
-                callback.call(context || null, object[key], key);
-            });
-        }
     }
 
     /**
@@ -310,6 +318,12 @@
 
         try {
             var scope = driver;
+
+            requiredDriverMethods.forEach(function (key) {
+                if (!driver.hasOwnProperty(key)) {
+                    throw Error('Method '+ key +' is not defined');
+                }
+            });
 
             Object.keys(driver).forEach(function (key) {
                 if (key in this) {
@@ -695,6 +709,12 @@
          */
         destroy: function () {
             this.trigger('destroy');
+
+            Object.keys(ClipboardDriver.drivers).forEach(function (key) {
+                var driver = ClipboardDriver.get(key);
+                driver.destroy();
+            });
+
             this.off();
         }
     };

@@ -43,13 +43,29 @@ new Clipboard.Driver('prompt', {
         return true;
     },
 
+    events: [ ],
+
     copy: function (elem, callback) {
         elem.forEach(function (item) {
-            item.addEventListener('mousedown', function (e) {
-                var val = this.callbackToString(callback, e.target)
-                window.prompt("Copy to clipboard: Ctrl+C, Enter", val);
-            }.bind(this), false);
+            var handler = function (e) {
+                window.prompt("Copy to clipboard: Ctrl+C, Enter", this.callbackToString(callback, e.target));
+            }.bind(this);
+
+            item.addEventListener('mousedown', handler, false);
+
+            this.events.push({
+                elem: item,
+                handler: handler
+            })
         }, this);
+    },
+
+    destroy: function () {
+        this.events.forEach(function (item) {
+            item.elem.removeEventListener('mousedown', item.handler, false);
+        });
+
+        this.events.length = 0;
     }
 });
 ```
@@ -177,7 +193,4 @@ Interface:
 * `e.text` - copy text (only copy type events)
 * `e.name` - error name (only error type events)
 * `e.message` - error message (only error type events)
-
-Default properties: 
-
 * `e.timeStamp` timestamp

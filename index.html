@@ -17,25 +17,43 @@
     <script>
         document.addEventListener('DOMContentLoaded', function () {
 
+            Clipboard.on('copy', console.log.bind(console));
+            Clipboard.on('error', console.error.bind(console));
+
             new Clipboard.Driver('prompt', {
                 checkSupport: function () {
                     return true;
                 },
 
+                events: [ ],
+
                 copy: function (elem, callback) {
                     elem.forEach(function (item) {
-                        item.addEventListener('mousedown', function (e) {
+                        var handler = function (e) {
                             window.prompt("Copy to clipboard: Ctrl+C, Enter", this.callbackToString(callback, e.target));
-                        }.bind(this), false);
+                        }.bind(this);
+
+                        item.addEventListener('mousedown', handler, false);
+
+                        this.events.push({
+                            elem: item,
+                            handler: handler
+                        })
                     }, this);
+                },
+
+                destroy: function () {
+                    this.events.forEach(function (item) {
+                        item.elem.removeEventListener('mousedown', item.handler, false);
+                    });
+
+                    this.events.length = 0;
                 }
             });
 
             Clipboard.copy('.copy', function (e) {
                 return e.target.value;
             });
-
-            Clipboard.on('copy', console.log.bind(console));
         })
     </script>
 </body>
