@@ -185,8 +185,8 @@ Clipboard.trigger('customEvent', {
 Interface:
 
 * {DOMElement} `e.target` Handled target element
-* {String} `e.clipboardType` Handled driver's name
-* {String} `e.text` Copied text (only for ``copy` event)
-* {String} `e.name` Error name (only for `error` event)
-* {String} `e.message` Error message (only for `error` event)
-* {Date} `e.timeStamp` Timestamp
+* `{String} e.clipboardType` Handled driver's name
+* `{String} e.text` Copied text (only for ``copy` event)
+* `{String} e.name` Error name (only for `error` event)
+* `{String} e.message` Error message (only for `error` event)
+* `{Date} e.timeStamp` Timestamp
