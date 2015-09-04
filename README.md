@@ -89,11 +89,11 @@ Clipboard.config({
 #### `Clipboard.copy(target, callback)`
 When fires a mousedown event on a `target`, will copy text from a `callback` to the copy buffer.
 
-* {String|Array|HTMLElement|HTMLCollection} `target` Selector or list of DOMElements to be listened
-* {String} `callback` Static text for the copy buffer
-* {Function} `callback` Retrieves text for the copy buffer
+* `{String|Array|HTMLElement|HTMLCollection} `target` Selector or list of DOMElements to be listened
+* `{String} callback` Static text for the copy buffer
+* `{Function} callback` Retrieves text for the copy buffer
 
-* {ClipboardCustomEvent} `callback.arguments[0]` Custom clipboard event
+* `{ClipboardCustomEvent} callback.arguments[0]` Custom clipboard event
 
 Triggers `copy` event, if text was copied. Otherwise triggers `error` event.
 
@@ -121,12 +121,12 @@ Clipboard driver interface.
 `new Clipboard.Driver(name, driver)` Creates and register new driver.
 Use `Clipboard.Driver` to declare custom clipboard driver.
 
-* {String} `name` Driver name
-* {Object} `driver` Driver prototype
-* {Function} `driver.checkSupport` Validates driver compatability
-* {Function} `driver.copy` Copy function
-* {Function} `driver.destroy` Destroys driver
-* {Object} `driver.config` Set properties to global config
+* `{String} name` Driver name
+* `{Object} driver` Driver prototype
+* `{Function} driver.checkSupport` Validates driver compatability
+* `{Function} driver.copy` Copy function
+* `{Function} driver.destroy` Destroys driver
+* `{Object} driver.config` Set properties to global config
 
 Example:
 
@@ -164,9 +164,9 @@ Clipboard.one('copy', function(e) {
 
 Arguments:
 
-* {String} `name` Event name
-* {Function} `callback` Callback function
-* {Object} [`context`] Callback context
+* `{String} name` Event name
+* `{Function} callback` Callback function
+* `{Object} [context]` Callback context
 
 Unsubscribe from clipboard events:
 ```js
@@ -184,7 +184,7 @@ Clipboard.trigger('customEvent', {
 
 Interface:
 
-* {DOMElement} `e.target` Handled target element
+* `{DOMElement} e.target` Handled target element
 * `{String} e.clipboardType` Handled driver's name
 * `{String} e.text` Copied text (only for ``copy` event)
 * `{String} e.name` Error name (only for `error` event)
