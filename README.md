@@ -1,7 +1,7 @@
 # Сlipboard
 Wrapper for Clipboard API and [ZeroClipboard](https://github.com/zeroclipboard/zeroclipboard) as alternative.
 
-Using execCommand in supported browsers, ZeroClipboard library for other
+Uses execCommand if supported otherwise fallback to ZeroClipboard library
 
 #### Native driver support:
 
@@ -14,7 +14,7 @@ See [ZeroClipboard](https://github.com/zeroclipboard/zeroclipboard)
 
 ### Usage
 
-Copy target value on click:
+Copy target's value on click:
 ```javascript
 document.addEventListener('DOMContentLoaded', function () {
     Clipboard.copy('.copy', function (e) {
@@ -29,14 +29,14 @@ Clipboard.copy('.copy', 'Hello, world!');
 ```
 
 
-Binding events:
+Handle events:
 ```javascript
 Clipboard.on('copy', console.log.bind(console));
 Clipboard.on('error', console.error.bind(console));
 ```
 
 
-Custom drivers usage:
+Define custom driver:
 ```javascript
 new Clipboard.Driver('prompt', {
     checkSupport: function () {
@@ -75,7 +75,7 @@ new Clipboard.Driver('prompt', {
 ### Static methods:
 
 #### `Clipboard.config(options)`
-Set global options
+Configure
 
 ```js
 Clipboard.config({
@@ -87,47 +87,46 @@ Clipboard.config({
 ===
 
 #### `Clipboard.copy(target, callback)`
-Copy `value` on click for `target`
+When fires a mousedown event on a `target`, will copy text from a `callback` to the copy buffer.
 
-* `target` - selector or HTML element or HTML collection or elements array (jQuery result object)
-* `callback` - string or result function copy text (callback always converted to string)
+* {String|Array|HTMLElement|HTMLCollection} `target` Selector or list of DOMElements to be listened
+* {String} `callback` Static text for the copy buffer
+* {Function} `callback` Retrieves text for the copy buffer
 
-If usin callback function, first argument is a ClipboardCustomEvent object
+* {ClipboardCustomEvent} `callback.arguments[0]` Custom clipboard event
 
-Triggered `copy` event if text copied to buffer or `error` even if copy problem
+Triggers `copy` event, if text was copied. Otherwise triggers `error` event.
 
 ===
 
 #### `Clipboard.destroy()`
-Unbind all events, removed cached data and fake element
-Triggered `destroy` event
+Unbind all events, removes cached data and fake element
+Triggers `destroy` event
 
 ===
 
 #### `Clipboard.Driver`
 Clipboard driver interface.
 
-Use `Clipboard.Driver` for define custom clipboard interface.
-
 ##### Static methods:
-
-`Driver.using` - Current used driver name
-`Driver.current` - Get current used driver interface
-`Driver.used(name)` - Set using driver
-`Driver.has(name)` - Has driver in storage
-`Driver.get(name)` - Get driver interface by name
-`Drive.register(driver: ClipboardDriver)` - Add new driver to driver storage
-`Driver.remove(name)` - Remove clipboard driver
+`Driver.using` Current driver name
+`Driver.current()` Current driver
+`Driver.use({String} name)` Use given driver
+`Driver.has({String} name)` Is driver declared
+`Driver.get({String} name)` Get driver by name
+`Driver.register({ClipboardDriver} driver)` Declare new driver
+`Driver.remove({String} name)` Remove driver
 
 ##### Constructor:
-`new Clipboard.Driver(name, driver)` - Created and register new driver.
+`new Clipboard.Driver(name, driver)` Creates and register new driver.
+Use `Clipboard.Driver` to declare custom clipboard driver.
 
-* `name` - Driver name
-* `drive` - ClipboardDriver object
-    * `drive.checkSupport` Validate driver support function
-    * `driver.copy` - Copy function
-    * `driver.destroy` - Destroy driver function
-    * `driver.config` - Set properties to global config
+* {String} `name` Driver name
+* {Object} `driver` Driver prototype
+* {Function} `driver.checkSupport` Validates driver compatability
+* {Function} `driver.copy` Copy function
+* {Function} `driver.destroy` Destroys driver
+* {Object} `driver.config` Set properties to global config
 
 Example:
 
@@ -150,14 +149,13 @@ new Clipboard.Driver('custom', {
 ### Event emitter
 
 Subscribe on clipboard events:
-
 ```js
 Clipboard.on('copy', function(e) {
     console.log(e);
 });
 ```
-or subscribe on once event:
 
+or subscribe on event once:
 ```js
 Clipboard.one('copy', function(e) {
     console.log(e);
@@ -166,31 +164,29 @@ Clipboard.one('copy', function(e) {
 
 Arguments:
 
-* `name` - event name
-* `callback` - callback function
-* `context` - callback context
+* {String} `name` Event name
+* {Function} `callback` Callback function
+* {Object} [`context`] Callback context
 
-Unsubscribe on clipboard events:
-
+Unsubscribe from clipboard events:
 ```js
 Clipboard.off('copy', myCallback);
 ```
 
 Triggered new event:
-
 ```js
 Clipboard.trigger('customEvent', {
     target: document.body
 });
 ```
 
-#### Clipboard event constructor
+#### ClipboardCustomEvent constructor
 
 Interface:
 
-* `e.target` - targeting object
-* `e.clipboardType` - target driver name
-* `e.text` - copy text (only copy type events)
-* `e.name` - error name (only error type events)
-* `e.message` - error message (only error type events)
-* `e.timeStamp` timestamp
+* {DOMElement} `e.target` Handled target element
+* {String} `e.clipboardType` Handled driver's name
+* {String} `e.text` Copied text (only for ``copy` event)
+* {String} `e.name` Error name (only for `error` event)
+* {String} `e.message` Error message (only for `error` event)
+* {Date} `e.timeStamp` Timestamp
