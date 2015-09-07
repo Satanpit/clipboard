@@ -80,7 +80,7 @@
             elements = context.querySelectorAll(selector);
         }
 
-        return toArray(elements || [ ]);
+        return toArray(elements.length ? elements : selector);
     }
 
     /**
@@ -667,7 +667,7 @@
                     ClipboardDriver.remove(e.clipboardType);
 
                     Object.keys(ClipboardDriver.drivers).forEach(function (key) {
-                        var driver = ClipboardDriver.drivers[key];
+                        var driver = ClipboardDriver.get(key);
 
                         if (driver.checkSupport()) {
                             driver.copy.apply(driver, args);
