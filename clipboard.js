@@ -9,7 +9,7 @@
 (function (scope, doc) {
     'use strict';
 
-    var timeout, args;
+    var timeout;
 
     /**
      * Clipboard global config
@@ -642,7 +642,7 @@
                 throw new Error('Invalid arguments');
             }
 
-            args = toArray(arguments);
+            var args = toArray(arguments);
             args.splice(0, 1, toElements(elem));
 
             if (ClipboardDriver.using === undefined) {
@@ -667,13 +667,13 @@
                     ClipboardDriver.remove(e.clipboardType);
 
                     Object.keys(ClipboardDriver.drivers).forEach(function (key) {
-                        var driver = ClipboardDriver.get(key);
+                        var driver = ClipboardDriver.drivers[key];
 
                         if (driver.checkSupport()) {
                             driver.copy.apply(driver, args);
                             ClipboardDriver.use(driver.name);
 
-                            e.target.dispatchEvent(new MouseEvent('mousedown'));
+                            e.target.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
 
                             return false;
                         }
