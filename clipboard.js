@@ -530,7 +530,7 @@
                     doc.execCommand('copy');
 
                     this.trigger('copy', {
-                        target: e.target,
+                        target: e.currentTarget,
                         text: val
                     });
                 } catch (err) {
@@ -548,7 +548,7 @@
                 if (!this.isSupport) {
                     this.trigger('error', {
                         clipboardType: 'native',
-                        target: e.target,
+                        target: e.currentTarget,
                         message: 'Native clipboard not supported',
                         name: 'support'
                     });
