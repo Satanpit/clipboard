@@ -646,8 +646,8 @@
             args.splice(0, 1, toElements(elem));
 
             if (ClipboardDriver.using === undefined) {
-                ClipboardDriver.use(globalConfig.baseDriver);
-                ClipboardDriver.current.copy.apply(ClipboardDriver.current, args);
+                var base = ClipboardDriver.get(globalConfig.baseDriver);
+                base.copy.apply(base, args);
 
                 if (globalConfig.alternativeDriver && ClipboardDriver.has(globalConfig.alternativeDriver)) {
                     var alt = ClipboardDriver.get(globalConfig.alternativeDriver);
@@ -663,21 +663,21 @@
             }
 
             this.on('error', function (e) {
+
                 if (e.name === 'support') {
                     ClipboardDriver.remove(e.clipboardType);
 
-                    Object.keys(ClipboardDriver.drivers).forEach(function (key) {
+                    for (var key in ClipboardDriver.drivers) {
                         var driver = ClipboardDriver.drivers[key];
 
                         if (driver.checkSupport()) {
                             driver.copy.apply(driver, args);
                             ClipboardDriver.use(driver.name);
-
                             e.target.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
 
-                            return false;
+                            break;
                         }
-                    });
+                    }
                 }
             }, this);
 
