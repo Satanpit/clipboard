@@ -507,8 +507,9 @@
             }
 
             this.textArea = doc.createElement('textarea');
-            this.textArea.style.position = 'absolute';
+            this.textArea.style.position = 'fixed';
             this.textArea.style.left = '-10000px';
+            this.textArea.style.top = '-10000px';
 
             return (doc.body || doc.documentElement).appendChild(this.textArea);
         },
