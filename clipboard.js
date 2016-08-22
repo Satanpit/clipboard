@@ -583,7 +583,7 @@
 
     new ClipboardDriver('flash', {
         config: {
-            ZeroClipboard: window.ZeroClipboard || null
+            ZeroClipboard: window.ZeroClipboard || globalConfig.ZeroClipboard || null
         },
 
         checkSupport: function () {
@@ -620,7 +620,9 @@
         },
 
         destroy: function () {
-            this.config.ZeroClipboard.destroy();
+            if (this.config.ZeroClipboard) {
+                this.config.ZeroClipboard.destroy();
+            }
         }
     });
 
@@ -722,4 +724,4 @@
 
     scope.Clipboard = Object.create(ClipboardEmitter, propertiesNames(ClipboardAPI));
 
-}(window, document));
+}(window || {}, document));
